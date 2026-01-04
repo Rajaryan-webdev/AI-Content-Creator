@@ -1,0 +1,8 @@
+{
+  "name": "CineScript AI - Cinematic Creative Assistant",
+  "description": "A powerful AI-driven workspace for video creators that converts ideas into complete cinematic blueprints with scripts, visual breakdowns, camera angles, and mood boards.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
