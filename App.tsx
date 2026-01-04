@@ -13,13 +13,14 @@ const App: React.FC = () => {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Check for Veo key on mount
   useEffect(() => {
     const checkKey = async () => {
       if (typeof window.aistudio !== 'undefined') {
-        const hasKey = await window.aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-          setShowKeyModal(true);
+        try {
+          const hasKey = await window.aistudio.hasSelectedApiKey();
+          if (!hasKey) setShowKeyModal(true);
+        } catch (e) {
+          console.error("Key selection check failed", e);
         }
       }
     };
@@ -33,11 +34,14 @@ const App: React.FC = () => {
       const result = await generateBlueprint(input);
       setBlueprint(result);
     } catch (err: any) {
-      console.error(err);
-      if (err.message?.includes("Requested entity was not found")) {
+      console.error("Blueprint generation error:", err);
+      const errorMessage = err?.message || String(err);
+      if (errorMessage.includes("Requested entity was not found") || errorMessage.includes("404")) {
         setShowKeyModal(true);
+        setError("AI model not found. Project requires a paid API key and billing.");
+      } else {
+        setError("Failed to generate script. Please check your configuration.");
       }
-      setError("Failed to generate script. Please check your AI studio billing or try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -49,56 +53,53 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0a0a] text-zinc-100 selection:bg-rose-500 selection:text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-[#0a0a0a]/80 backdrop-blur-md px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer" onClick={reset}>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 flex items-center justify-center shadow-lg shadow-rose-900/20">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    <div className="min-h-screen flex flex-col bg-[#131314] text-[#e3e3e3] selection:bg-blue-500/30">
+      {/* Navbar */}
+      <header className="fixed top-0 z-50 w-full px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 cursor-pointer group" onClick={reset}>
+          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center transition-all group-hover:bg-white/10 border border-white/10">
+            <svg className="w-5 h-5 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z" />
             </svg>
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">CineScript <span className="text-rose-500">AI</span></h1>
-            <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-medium">Visionary Creative Assistant</p>
-          </div>
+          <span className="font-semibold text-lg tracking-tight">CineScript</span>
         </div>
 
-        <nav className="hidden md:flex items-center gap-8">
-          <a href="#" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Workspace</a>
-          <a href="#" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Library</a>
-          <a href="#" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Assets</a>
-        </nav>
-
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
-            onClick={() => setShowKeyModal(true)}
-            className="text-xs px-3 py-1.5 rounded-full border border-white/10 hover:bg-white/5 transition-colors"
+            onClick={() => window.aistudio.openSelectKey()}
+            className="text-[11px] font-medium px-4 py-2 rounded-full border border-white/10 hover:bg-white/5 transition-all text-zinc-400 hover:text-white"
           >
-            Config API
+            Settings
           </button>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-6 md:p-10">
+      <main className="flex-1 flex flex-col items-center pt-24 pb-12 px-4 max-w-5xl mx-auto w-full">
         {!blueprint ? (
-          <div className="flex flex-col items-center justify-center py-12">
-            <div className="text-center mb-12 space-y-4">
-              <h2 className="text-4xl md:text-6xl font-serif italic text-white">Think Visually.</h2>
-              <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
-                Turn your raw ideas into ready-to-shoot cinematic blueprints. 
-                Scriptwriting, visual breakdown, and technical direction in one click.
+          <div className="w-full flex flex-col items-center justify-center min-h-[70vh] animate-in fade-in duration-1000">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl md:text-5xl font-medium mb-4 tracking-tight">
+                Hello, <span className="gemini-gradient font-semibold">Director</span>
+              </h2>
+              <p className="text-zinc-400 text-lg">
+                What story are we telling today?
               </p>
             </div>
             
-            <div className="w-full max-w-2xl bg-zinc-900/40 border border-white/5 rounded-3xl p-8 shadow-2xl backdrop-blur-sm">
+            <div className="w-full max-w-2xl">
               <CreatorForm onGenerate={handleGenerate} isGenerating={isGenerating} />
+              
               {error && (
-                <div className="mt-4 p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm rounded-lg flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="mt-8 p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 text-rose-400 text-sm flex items-start gap-3 animate-in slide-in-from-top-2">
+                  <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  {error}
+                  <div>
+                    <p className="font-semibold mb-1">Configuration Needed</p>
+                    <p className="opacity-80">{error}</p>
+                    <button onClick={() => window.aistudio.openSelectKey()} className="mt-2 text-blue-400 hover:underline font-medium">Configure Key</button>
+                  </div>
                 </div>
               )}
             </div>
@@ -108,14 +109,8 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {/* Floating Live Assistant Button */}
-      {!isGenerating && <LiveAssistant />}
-
+      <LiveAssistant />
       {showKeyModal && <ApiKeyModal onClose={() => setShowKeyModal(false)} />}
-      
-      <footer className="w-full py-8 border-t border-white/5 px-6 text-center">
-        <p className="text-zinc-600 text-sm">Powered by Gemini 3.0 & Veo 3.1 • Professional Cinema Planning</p>
-      </footer>
     </div>
   );
 };

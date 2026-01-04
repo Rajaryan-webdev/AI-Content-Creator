@@ -8,28 +8,48 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --gemini-bg: #131314;
+        --gemini-surface: #1e1f20;
+        --gemini-border: rgba(255, 255, 255, 0.1);
+      }
       body {
         font-family: 'Inter', sans-serif;
-        background-color: #0a0a0a;
-        color: #f5f5f5;
+        background-color: var(--gemini-bg);
+        color: #e3e3e3;
+        letter-spacing: -0.01em;
       }
       .font-serif {
         font-family: 'Playfair+Display', serif;
       }
+      .gemini-gradient {
+        background: linear-gradient(74deg, #4285f4 0, #9b72cb 9%, #d96570 20%, #d96570 24%, #9b72cb 35%, #4285f4 44%, #9b72cb 50%, #d96570 56%, #131314 75%, #131314 100%);
+        background-size: 400% 400%;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        animation: gradient-flow 15s ease infinite;
+      }
+      @keyframes gradient-flow {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      .glass {
+        background: rgba(30, 31, 32, 0.7);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--gemini-border);
+      }
       ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #111;
+        background: transparent;
       }
       ::-webkit-scrollbar-thumb {
-        background: #333;
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #444;
+        background: #3c3c3c;
+        border-radius: 10px;
       }
     </style>
   <script type="importmap">

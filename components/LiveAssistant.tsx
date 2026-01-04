@@ -54,72 +54,94 @@ const LiveAssistant: React.FC = () => {
 
   const startSession = async () => {
     setStatus('connecting');
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
-    
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    const inputContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-    
-    streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
+    try {
+      // Ensure key is selected before starting live session
+      const hasKey = await window.aistudio.hasSelectedApiKey();
+      if (!hasKey) {
+        await window.aistudio.openSelectKey();
+      }
 
-    const sessionPromise = ai.live.connect({
-      model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-      callbacks: {
-        onopen: () => {
-          setStatus('listening');
-          const source = inputContext.createMediaStreamSource(streamRef.current!);
-          const scriptProcessor = inputContext.createScriptProcessor(4096, 1, 1);
-          scriptProcessor.onaudioprocess = (e) => {
-            const inputData = e.inputBuffer.getChannelData(0);
-            const pcmBlob = createBlob(inputData);
-            sessionPromise.then((session) => {
-              session.sendRealtimeInput({ media: pcmBlob });
-            });
-          };
-          source.connect(scriptProcessor);
-          scriptProcessor.connect(inputContext.destination);
-        },
-        onmessage: async (message: LiveServerMessage) => {
-          const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-          if (base64Audio && audioContextRef.current) {
-            setStatus('speaking');
-            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioContextRef.current.currentTime);
-            const bytes = decode(base64Audio);
-            const audioBuffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
-            const source = audioContextRef.current.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioContextRef.current.destination);
-            source.addEventListener('ended', () => {
-              sourcesRef.current.delete(source);
-              if (sourcesRef.current.size === 0) setStatus('listening');
-            });
-            source.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += audioBuffer.duration;
-            sourcesRef.current.add(source);
-          }
+      // Always create a new instance right before connection
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+      const inputContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
+      
+      streamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-          if (message.serverContent?.interrupted) {
-            for (const s of sourcesRef.current.values()) {
-              s.stop();
-            }
-            sourcesRef.current.clear();
-            nextStartTimeRef.current = 0;
+      const sessionPromise = ai.live.connect({
+        model: 'gemini-2.5-flash-native-audio-preview-09-2025',
+        callbacks: {
+          onopen: () => {
             setStatus('listening');
-          }
-        },
-        onerror: () => setStatus('idle'),
-        onclose: () => setStatus('idle'),
-      },
-      config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
-        },
-        systemInstruction: 'You are an AI cinema director assistant. Help the user refine their video script, suggest camera angles, and talk through creative ideas. Keep it professional and inspiring.',
-      },
-    });
+            const source = inputContext.createMediaStreamSource(streamRef.current!);
+            const scriptProcessor = inputContext.createScriptProcessor(4096, 1, 1);
+            scriptProcessor.onaudioprocess = (e) => {
+              const inputData = e.inputBuffer.getChannelData(0);
+              const pcmBlob = createBlob(inputData);
+              sessionPromise.then((session) => {
+                session.sendRealtimeInput({ media: pcmBlob });
+              });
+            };
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(inputContext.destination);
+          },
+          onmessage: async (message: LiveServerMessage) => {
+            const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+            if (base64Audio && audioContextRef.current) {
+              setStatus('speaking');
+              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, audioContextRef.current.currentTime);
+              const bytes = decode(base64Audio);
+              const audioBuffer = await decodeAudioData(bytes, audioContextRef.current, 24000, 1);
+              const source = audioContextRef.current.createBufferSource();
+              source.buffer = audioBuffer;
+              source.connect(audioContextRef.current.destination);
+              source.addEventListener('ended', () => {
+                sourcesRef.current.delete(source);
+                if (sourcesRef.current.size === 0) setStatus('listening');
+              });
+              source.start(nextStartTimeRef.current);
+              nextStartTimeRef.current += audioBuffer.duration;
+              sourcesRef.current.add(source);
+            }
 
-    sessionRef.current = await sessionPromise;
-    setIsActive(true);
+            if (message.serverContent?.interrupted) {
+              for (const s of sourcesRef.current.values()) {
+                s.stop();
+              }
+              sourcesRef.current.clear();
+              nextStartTimeRef.current = 0;
+              setStatus('listening');
+            }
+          },
+          onerror: (e) => {
+            console.error("Live assistant error:", e);
+            setStatus('idle');
+            setIsActive(false);
+          },
+          onclose: () => {
+            setStatus('idle');
+            setIsActive(false);
+          },
+        },
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } },
+          },
+          systemInstruction: 'You are an AI cinema director assistant. Help the user refine their video script, suggest camera angles, and talk through creative ideas. Keep it professional and inspiring.',
+        },
+      });
+
+      sessionRef.current = await sessionPromise;
+      setIsActive(true);
+    } catch (err: any) {
+      console.error("Failed to start live session:", err);
+      if (err.message?.includes("Requested entity was not found") || err.message?.includes("404")) {
+        window.aistudio.openSelectKey();
+      }
+      setStatus('idle');
+    }
   };
 
   const stopSession = () => {
@@ -144,7 +166,7 @@ const LiveAssistant: React.FC = () => {
               {status === 'connecting' ? 'Connecting...' : status === 'listening' ? 'Listening...' : 'Thinking...'}
             </p>
           </div>
-          <p className="text-sm text-zinc-300">"How should I light the opening scene?"</p>
+          <p className="text-sm text-zinc-300 italic">"Ready for direction."</p>
           <div className="flex justify-center py-2">
              <div className="flex gap-1 h-6 items-end">
                 {[1,2,3,4,5].map(i => (
